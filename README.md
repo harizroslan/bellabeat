@@ -1,6 +1,6 @@
 # Bellabeat
 
-I completed another Capstone project as part of the Google Data Analytics Course, where I analyzed fitness tracker data to provide data-driven solutions for Cyclistic.
+I completed another Capstone project as part of the Google Data Analytics Course, where I analyzed fitness tracker data to provide data-driven solutions for Bellabeat.
 
 ## Dataset
 You can access the public dataset used for this project [here]([https://divvy-tripdata.s3.amazonaws.com/index.html](https://www.kaggle.com/datasets/arashnic/fitbit)).
