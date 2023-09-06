@@ -1,0 +1,168 @@
+---
+title: "Track 2 Analysis"
+output: html_document
+date: "2023-06-30"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Installing libraries
+
+```{r cars}
+library(tidyverse)
+library(lubridate)
+```
+
+#Read the Datasets
+```{r}
+
+activity <- read.csv("dailyActivity_merged.csv")
+slp <- read.csv("sleepDay_merged.csv")
+weight <- read.csv("weightLogInfo_merged.csv")
+steps <- read.csv("hourlySteps_merged.csv")
+
+```
+
+#Peek Dataset
+```{r}
+head(activity)
+head(slp)
+head(weight)
+head(steps)
+
+str(activity)
+str(slp)
+str(weight)
+str(steps)
+```
+
+#Clean & Transforming Data
+```{r}
+
+#check for any duplicate rows
+sum(duplicated(activity))
+sum(duplicated(slp))
+sum(duplicated(weight))
+sum(duplicated(steps))
+
+#remove duplicates
+slp <- unique(slp)
+sum(duplicated(slp))
+
+#ensure that there are distinct ids
+length(unique(activity$Id))
+length(unique(slp$Id))
+length(unique(weight$Id))
+length(unique(steps$Id))
+
+#check for any NULL or missing values
+any(is.na(activity))
+any(is.na(slp))
+any(is.na(weight))
+any(is.na(steps))
+
+#convert chr type to Date type
+activity$ActivityDate <- as.Date(activity$ActivityDate, format = "%m/%d/%Y")
+weight$Date <- datetime <- as.POSIXct(weight$Date, format = "%m/%d/%Y %H:%M")
+slp$SleepDay<- as.POSIXct(slp$SleepDay, format = "%m/%d/%Y %I:%M:%S %p")
+
+#add day_of_the_week column
+activity$day_of_the_week <- day <- format(as.Date(activity$ActivityDate), "%A")
+
+
+#splitting date & time from steps column & obtaining the hour
+steps$ActivityHour <- strptime(steps$ActivityHour, "%m/%d/%Y %I:%M:%S %p")
+steps$date <- as.Date(steps$ActivityHour)
+steps$time <- format(steps$ActivityHour, "%H:%M:%S")
+steps$hour <- substr(steps$time, 1, 2)
+```
+
+#Merge Data
+```{r}
+
+colnames(activity)[colnames(activity) == "ActivityDate"] <- "Date"
+colnames(slp)[colnames(slp) == "SleepDay"] <- "Date"
+
+
+activity_slp <- merge(activity, slp, by = c("Id", "Date"))
+
+```
+
+#Descriptive Statistics
+```{r}
+
+desired_order <- c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
+
+activity_slp$day_of_the_week <- factor(activity_slp$day_of_the_week, levels = desired_order)
+
+#find statistics of the relevant data to have quick glance of the user statistics
+summary(activity_slp)
+
+#find average total steps throughout the week to find the active days
+activity_slp%>%
+  group_by(day_of_the_week)%>%
+  summarize(avg_step=mean(TotalSteps))
+
+#find average calories burn throughout the week to also support the active days?
+activity_slp%>%
+  group_by(day_of_the_week)%>%
+  summarize(avg_calories=mean(Calories))
+
+```
+
+#Data Visualization
+```{r}
+
+#Which activity does the users do?
+
+sums <- activity_slp %>%
+  summarize(Active_Minutes = sum(activity_slp$VeryActiveMinutes),
+            Sedimentary_Minutes= sum(activity_slp$SedentaryMinutes),
+            Fairly_Active_Minutes = sum(activity_slp$FairlyActiveMinutes),
+            Lightly_Active_Minutes=sum(activity_slp$LightlyActiveMinutes)
+  )
+pie_data <- gather(sums, key = "Category", value = "Sum")
+
+pie_chart <- ggplot(pie_data, aes(x = "", y = Sum, fill = Category)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+  theme_void() +
+  labs(fill = "Category") +
+  geom_text(aes(x=1.6,label = paste0(round((Sum/sum(Sum)) * 100), "%")), 
+            position = position_stack(vjust = 0.5))
+
+print(pie_chart)
+
+
+#how many users logged into the app (which day where many users uses the app?)
+users_day <- activity_slp %>%
+  group_by(day_of_the_week)%>%
+  summarise(unique_id=n())
+
+ggplot(users_day,aes(x=day_of_the_week,y=unique_id))+geom_bar(stat="identity",fill="red")+geom_text(aes(label = unique_id), vjust = -0.5)+xlab("Day of the week")+ylab("Number of users")+ggtitle("Users count throughout the week")
+
+
+#how many users exercise throughout the hour (which hour is the busiest)
+step_hr <- steps %>%
+  group_by(hour)%>%
+  summarise(avg=mean(StepTotal))
+
+ggplot(step_hr,aes(x=hour,y=avg))+geom_bar(stat="identity",fill="blue")+xlab("Hour of the day")+ylab("Step Count")+ggtitle("Average step count throughout the hour")
+
+
+#relation (calories burn vs steps taken, to show positive correlation)
+ggplot(data=activity_slp,aes(x=TotalSteps,y=Calories))+geom_point()+geom_smooth(method="lm")
+
+
+#relation (time taken to sleep vs on bed, to show positvie correlation)
+ggplot(data=activity_slp,aes(x=TotalMinutesAsleep,y=TotalTimeInBed))+geom_point()+geom_smooth(method="lm")
+
+
+```
+
+
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
